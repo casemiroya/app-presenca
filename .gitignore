@@ -6,3 +6,5 @@ dist/
 build/
 .replit
 replit.nix
+diarios/
+*.xlsx
