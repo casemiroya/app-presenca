@@ -10,6 +10,15 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+// Carregar usuários
+let usuariosData = {};
+try {
+  const usuariosFile = fs.readFileSync('usuarios.json', 'utf8');
+  usuariosData = JSON.parse(usuariosFile);
+} catch (error) {
+  console.error('Erro ao carregar usuarios.json:', error);
+}
+
 // Pasta raiz dos diários
 // Se estiver em produção (Replit), usa './diarios'
 // Se local, usa o caminho completo
@@ -77,6 +86,38 @@ function obterAbaTrimestre(data) {
 
   return '1º TRIM'; // padrão
 }
+
+// POST - Login
+app.post('/api/login', (req, res) => {
+  try {
+    const { usuario, senha } = req.body;
+
+    if (!usuario || !senha) {
+      return res.status(400).json({ erro: 'Usuário e senha inválidos' });
+    }
+
+    const user = usuariosData.usuarios.find(
+      u => u.usuario === usuario && u.senha === senha
+    );
+
+    if (!user) {
+      return res.status(401).json({ erro: 'Usuário ou senha incorretos' });
+    }
+
+    res.json({
+      sucesso: true,
+      usuario: {
+        id: user.id,
+        nome: user.nome,
+        usuario: user.usuario,
+        disciplina: user.disciplina
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao fazer login:', error);
+    res.status(500).json({ erro: 'Erro ao fazer login' });
+  }
+});
 
 // GET - Listar todos os diários disponíveis
 app.get('/api/diarios', (req, res) => {
@@ -224,7 +265,7 @@ app.post('/api/adicionar-aluno', async (req, res) => {
 // POST - Salvar presença
 app.post('/api/salvar-presenca', async (req, res) => {
   try {
-    const { data, conteudo, presencas, diarioId } = req.body;
+    const { data, conteudo, presencas, diarioId, professor } = req.body;
 
     if (!data || !presencas || Object.keys(presencas).length === 0) {
       return res.status(400).json({ erro: 'Dados incompletos' });

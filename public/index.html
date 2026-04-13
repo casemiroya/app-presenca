@@ -56,6 +56,40 @@
             display: block;
         }
 
+        /* Tela 0: Login */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .form-group input {
+            margin-bottom: 15px;
+        }
+
+        .user-info {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #333;
+        }
+
         /* Tela 1: Seleção de Diário */
         .diario-item {
             background: #f8f9fa;
@@ -372,9 +406,43 @@
         </div>
 
         <div class="content">
+            <!-- Tela 0: Login -->
+            <div class="screen active" id="screen-login">
+                <div class="login-container">
+                    <div class="login-box">
+                        <h2>🔐 Login</h2>
+                        <div id="status-login" class="status"></div>
+
+                        <div class="form-group">
+                            <label>👤 Usuário</label>
+                            <input type="text" id="input-usuario" placeholder="Digite seu usuário" autofocus>
+                        </div>
+
+                        <div class="form-group">
+                            <label>🔑 Senha</label>
+                            <input type="password" id="input-senha" placeholder="Digite sua senha">
+                        </div>
+
+                        <button class="btn-primary" onclick="fazerLogin()" style="width: 100%;">Entrar</button>
+
+                        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666;">
+                            <strong>Demo:</strong><br>
+                            Usuário: <code>leandro</code><br>
+                            Senha: <code>123456</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tela 1: Seleção de Diário -->
-            <div class="screen active" id="screen-diarios">
-                <h2 style="margin-bottom: 15px; color: #333;">Selecione uma Turma</h2>
+            <div class="screen" id="screen-diarios">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="color: #333; margin: 0;">Selecione uma Turma</h2>
+                    <button class="btn-secondary btn-small" onclick="fazerLogout()">Sair</button>
+                </div>
+
+                <div class="user-info" id="user-info-display"></div>
+
                 <div id="diarios-container">
                     <div class="loading active">
                         <div class="spinner"></div>
@@ -447,6 +515,83 @@
     <script>
         let diarioSelecionado = null;
         let alunosSelecionados = {};
+        let usuarioLogado = null;
+
+        // Login
+        async function fazerLogin() {
+            const usuario = document.getElementById('input-usuario').value.trim();
+            const senha = document.getElementById('input-senha').value.trim();
+
+            if (!usuario || !senha) {
+                mostrarStatusLogin('Informe usuário e senha', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, senha })
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    usuarioLogado = resultado.usuario;
+                    localStorage.setItem('usuarioLogado', JSON.stringify(usuarioLogado));
+
+                    // Mostrar tela de diários
+                    document.getElementById('screen-login').classList.remove('active');
+                    document.getElementById('screen-diarios').classList.add('active');
+
+                    // Exibir informações do usuário
+                    document.getElementById('user-info-display').innerHTML =
+                        `Bem-vindo, <strong>${usuarioLogado.nome}</strong>! 👋`;
+
+                    carregarDiarios();
+                } else {
+                    mostrarStatusLogin(resultado.erro, 'error');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarStatusLogin('Erro ao fazer login', 'error');
+            }
+        }
+
+        // Logout
+        function fazerLogout() {
+            usuarioLogado = null;
+            localStorage.removeItem('usuarioLogado');
+
+            document.getElementById('input-usuario').value = '';
+            document.getElementById('input-senha').value = '';
+            document.getElementById('status-login').className = 'status';
+
+            document.getElementById('screen-presenca').classList.remove('active');
+            document.getElementById('screen-diarios').classList.remove('active');
+            document.getElementById('screen-login').classList.add('active');
+
+            document.getElementById('input-usuario').focus();
+        }
+
+        // Verificar se já tem usuário logado
+        function verificarLogin() {
+            const user = localStorage.getItem('usuarioLogado');
+            if (user) {
+                usuarioLogado = JSON.parse(user);
+                document.getElementById('screen-login').classList.remove('active');
+                document.getElementById('screen-diarios').classList.add('active');
+                document.getElementById('user-info-display').innerHTML =
+                    `Bem-vindo, <strong>${usuarioLogado.nome}</strong>! 👋`;
+                carregarDiarios();
+            }
+        }
+
+        function mostrarStatusLogin(mensagem, tipo) {
+            const status = document.getElementById('status-login');
+            status.textContent = mensagem;
+            status.className = `status ${tipo}`;
+        }
 
         // Carregar diários
         async function carregarDiarios() {
@@ -566,7 +711,8 @@
                         data,
                         conteudo,
                         presencas: alunosSelecionados,
-                        diarioId: diarioSelecionado.id
+                        diarioId: diarioSelecionado.id,
+                        professor: usuarioLogado ? usuarioLogado.nome : 'Desconhecido'
                     })
                 });
 
@@ -646,7 +792,7 @@
         }
 
         // Inicializar
-        carregarDiarios();
+        verificarLogin();
 
         // Fechar modal ao clicar fora
         document.getElementById('modal-aluno').onclick = function(event) {
