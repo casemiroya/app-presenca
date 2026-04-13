@@ -309,11 +309,10 @@ app.post('/api/salvar-presenca', async (req, res) => {
     cell_data.alignment = { horizontal: 'center', vertical: 'center' };
 
     // Adicionar conteúdo se houver
-    if (conteudo) {
+    if (conteudo && conteudo.trim()) {
       const cell_conteudo = worksheet.getCell(2, colunaDado);
-      cell_conteudo.value = conteudo;
+      cell_conteudo.value = conteudo.trim();
       cell_conteudo.alignment = { horizontal: 'center', vertical: 'center', wrap: true };
-      cell_conteudo.border = { left: { style: 'thin' }, right: { style: 'thin' }, top: { style: 'thin' }, bottom: { style: 'thin' } };
     }
 
     // Adicionar presenças
