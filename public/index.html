@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Presença - Marque Presenças</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Tela 1: Seleção de Diário */
+        .diario-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .diario-item:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: translateX(5px);
+        }
+
+        .diario-item.active {
+            background: #e7f0ff;
+            border-color: #667eea;
+        }
+
+        .diario-item h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .diario-item p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-right: 5px;
+        }
+
+        /* Tela 2: Marcar Presença */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .alunos-list {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .aluno-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .aluno-item:last-child {
+            border-bottom: none;
+        }
+
+        .aluno-numero {
+            width: 30px;
+            font-weight: bold;
+            color: #667eea;
+            font-size: 12px;
+        }
+
+        .aluno-nome {
+            flex: 1;
+            color: #333;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .presenca-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-presenca {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .btn-presenca.p {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #28a745;
+        }
+
+        .btn-presenca.f {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+
+        .btn-presenca:hover {
+            transform: scale(1.05);
+        }
+
+        /* Botões */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        /* Status */
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .btn-adicionar {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: #28a745;
+        }
+
+        .btn-adicionar:hover {
+            background: #218838;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Presença Digital</h1>
+            <p>Marque presenças e conteúdos facilmente</p>
+        </div>
+
+        <div class="content">
+            <!-- Tela 1: Seleção de Diário -->
+            <div class="screen active" id="screen-diarios">
+                <h2 style="margin-bottom: 15px; color: #333;">Selecione uma Turma</h2>
+                <div id="diarios-container">
+                    <div class="loading active">
+                        <div class="spinner"></div>
+                        <p>Carregando turmas...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tela 2: Marcar Presença -->
+            <div class="screen" id="screen-presenca">
+                <div style="text-align: right; margin-bottom: 15px;">
+                    <button class="btn-secondary btn-small" onclick="voltarDiarios()">← Voltar</button>
+                </div>
+
+                <div id="status" class="status"></div>
+
+                <div class="info-box">
+                    <strong id="turma-info"></strong><br>
+                    <small id="disciplina-info"></small>
+                </div>
+
+                <div class="form-group">
+                    <label>📅 Data da Aula *</label>
+                    <input type="date" id="data-aula" required>
+                </div>
+
+                <div class="form-group">
+                    <label>📚 Conteúdo da Aula</label>
+                    <textarea id="conteudo-aula" placeholder="Ex: Equações do 1º grau, Funções..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>👥 Marque a Presença dos Alunos</label>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        <strong>P</strong> = Presente | <strong>F</strong> = Falta
+                    </p>
+                    <div class="alunos-list" id="alunos-container">
+                        <div class="loading active">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="salvarPresenca()">✓ Salvar Presença</button>
+                </div>
+
+                <button class="btn-adicionar" onclick="abrirModalAluno()">+ Adicionar Novo Aluno</button>
+
+                <div class="loading" id="loading-salvar">
+                    <div class="spinner"></div>
+                    <p>Salvando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar Aluno -->
+    <div class="modal" id="modal-aluno">
+        <div class="modal-content">
+            <h3>Adicionar Novo Aluno</h3>
+            <input type="text" id="nome-aluno" placeholder="Nome completo do aluno" autofocus>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="fecharModalAluno()">Cancelar</button>
+                <button class="btn-primary" onclick="adicionarAluno()">Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let diarioSelecionado = null;
+        let alunosSelecionados = {};
+
+        // Carregar diários
+        async function carregarDiarios() {
+            try {
+                const response = await fetch('/api/diarios');
+                const diarios = await response.json();
+
+                const container = document.getElementById('diarios-container');
+                container.innerHTML = '';
+
+                if (diarios.length === 0) {
+                    container.innerHTML = '<p style="color: #666; text-align: center;">Nenhum diário encontrado</p>';
+                    return;
+                }
+
+                diarios.forEach(diario => {
+                    const div = document.createElement('div');
+                    div.className = 'diario-item';
+                    div.innerHTML = `
+                        <h3>${diario.disciplina}</h3>
+                        <p>
+                            <span class="badge">Turma ${diario.turma}</span>
+                            <span class="badge">${diario.nome.replace('.xlsx', '')}</span>
+                        </p>
+                    `;
+                    div.onclick = () => selecionarDiario(diario);
+                    container.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('diarios-container').innerHTML =
+                    '<p style="color: red;">Erro ao carregar turmas</p>';
+            }
+        }
+
+        // Selecionar diário
+        async function selecionarDiario(diario) {
+            diarioSelecionado = diario;
+            alunosSelecionados = {};
+
+            // Carregar dados do diário
+            try {
+                const response = await fetch(`/api/dados?diarioId=${diario.id}`);
+                const dados = await response.json();
+
+                document.getElementById('turma-info').textContent = `Turma ${dados.turma}`;
+                document.getElementById('disciplina-info').textContent = dados.disciplina;
+
+                // Preencher data de hoje
+                const hoje = new Date().toISOString().split('T')[0];
+                document.getElementById('data-aula').value = hoje;
+
+                // Preencher alunos
+                const container = document.getElementById('alunos-container');
+                container.innerHTML = '';
+
+                dados.alunos.forEach(aluno => {
+                    const div = document.createElement('div');
+                    div.className = 'aluno-item';
+                    div.innerHTML = `
+                        <div class="aluno-numero">${aluno.numero}</div>
+                        <div class="aluno-nome">${aluno.nome}</div>
+                        <div class="presenca-buttons">
+                            <button class="btn-presenca p" onclick="marcarPresenca(${aluno.numero}, 'P')" id="btn-p-${aluno.numero}">P</button>
+                            <button class="btn-presenca f" onclick="marcarPresenca(${aluno.numero}, 'F')" id="btn-f-${aluno.numero}">F</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Mostrar tela de presença
+                document.getElementById('screen-diarios').classList.remove('active');
+                document.getElementById('screen-presenca').classList.add('active');
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao carregar dados do diário');
+            }
+        }
+
+        // Marcar presença
+        function marcarPresenca(numero, presenca) {
+            alunosSelecionados[numero] = presenca;
+
+            // Atualizar visualização
+            document.getElementById(`btn-p-${numero}`).classList.remove('p');
+            document.getElementById(`btn-f-${numero}`).classList.remove('f');
+
+            if (presenca === 'P') {
+                document.getElementById(`btn-p-${numero}`).classList.add('p');
+            } else if (presenca === 'F') {
+                document.getElementById(`btn-f-${numero}`).classList.add('f');
+            }
+        }
+
+        // Salvar presença
+        async function salvarPresenca() {
+            const data = document.getElementById('data-aula').value;
+            const conteudo = document.getElementById('conteudo-aula').value;
+
+            if (!data) {
+                mostrarStatus('Informe a data da aula', 'error');
+                return;
+            }
+
+            if (Object.keys(alunosSelecionados).length === 0) {
+                mostrarStatus('Marque pelo menos um aluno', 'error');
+                return;
+            }
+
+            document.getElementById('loading-salvar').classList.add('active');
+
+            try {
+                const response = await fetch('/api/salvar-presenca', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data,
+                        conteudo,
+                        presencas: alunosSelecionados,
+                        diarioId: diarioSelecionado.id
+                    })
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    mostrarStatus('✓ Presença salva com sucesso!', 'success');
+                    setTimeout(() => voltarDiarios(), 2000);
+                } else {
+                    mostrarStatus('Erro: ' + resultado.erro, 'error');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarStatus('Erro ao salvar', 'error');
+            } finally {
+                document.getElementById('loading-salvar').classList.remove('active');
+            }
+        }
+
+        // Adicionar aluno
+        function abrirModalAluno() {
+            document.getElementById('modal-aluno').classList.add('active');
+            document.getElementById('nome-aluno').focus();
+        }
+
+        function fecharModalAluno() {
+            document.getElementById('modal-aluno').classList.remove('active');
+        }
+
+        async function adicionarAluno() {
+            const nome = document.getElementById('nome-aluno').value.trim();
+
+            if (!nome) {
+                alert('Informe o nome do aluno');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/adicionar-aluno', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nome,
+                        diarioId: diarioSelecionado.id
+                    })
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    mostrarStatus(resultado.mensagem, 'success');
+                    fecharModalAluno();
+
+                    // Recarregar dados do diário
+                    setTimeout(() => selecionarDiario(diarioSelecionado), 1500);
+                } else {
+                    alert('Erro: ' + resultado.erro);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao adicionar aluno');
+            }
+        }
+
+        // Voltar
+        function voltarDiarios() {
+            document.getElementById('screen-presenca').classList.remove('active');
+            document.getElementById('screen-diarios').classList.add('active');
+            document.getElementById('status').classList.remove('success', 'error');
+        }
+
+        // Status
+        function mostrarStatus(mensagem, tipo) {
+            const status = document.getElementById('status');
+            status.textContent = mensagem;
+            status.className = `status ${tipo}`;
+        }
+
+        // Inicializar
+        carregarDiarios();
+
+        // Fechar modal ao clicar fora
+        document.getElementById('modal-aluno').onclick = function(event) {
+            if (event.target === this) {
+                fecharModalAluno();
+            }
+        };
+    </script>
+</body>
+</html>
