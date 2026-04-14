@@ -10,64 +10,41 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Carregar usuários
-let usuariosData = {};
-try {
-  const usuariosFile = fs.readFileSync('usuarios.json', 'utf8');
-  usuariosData = JSON.parse(usuariosFile);
-} catch (error) {
-  console.error('Erro ao carregar usuarios.json:', error);
-}
+// Pasta dos diários novos
+const PASTA_DIARIOS = path.join(__dirname, 'diarios');
 
-// Pasta raiz dos diários
-// Se estiver em produção (Replit), usa './diarios'
-// Se local, usa o caminho completo
-const PASTA_DIARIOS = process.env.PASTA_DIARIOS ||
-  (process.env.NODE_ENV === 'production'
-    ? './diarios'
-    : 'D:\\1. PROJETOS\\ESCOLA\\2026\\DIÁRIOS');
+// Garantir que a pasta existe
+if (!fs.existsSync(PASTA_DIARIOS)) {
+  fs.mkdirSync(PASTA_DIARIOS, { recursive: true });
+}
 
 // Função para listar todos os diários disponíveis
 function listarDiarios() {
   const diarios = [];
 
   try {
-    const pastasDisciplinas = fs.readdirSync(PASTA_DIARIOS, { withFileTypes: true });
+    const arquivos = fs.readdirSync(PASTA_DIARIOS);
 
-    pastasDisciplinas.forEach(pasta => {
-      if (!pasta.isDirectory()) return;
+    arquivos.forEach((arquivo, idx) => {
+      if (arquivo.endsWith('.xlsx')) {
+        const caminhoArquivo = path.join(PASTA_DIARIOS, arquivo);
 
-      const caminhoDisc = path.join(PASTA_DIARIOS, pasta.name);
-      const pastasInternasPath = path.join(caminhoDisc);
+        // Extrair turma do nome do arquivo (DIÁRIO 1001 MATEMÁTICA 2026.xlsx)
+        const match = arquivo.match(/DIÁRIO\s+(\d{4}|\d{4}\s+\w+)/);
+        const turma = match ? match[1].trim() : 'Desconhecida';
 
-      // Procura pastas internas (como "Matemática", "Português")
-      const pastasInternas = fs.readdirSync(pastasInternasPath, { withFileTypes: true });
+        // Extrair disciplina (MATEMÁTICA, REFORÇO, etc)
+        const matchDisc = arquivo.match(/MATEMÁTICA|REFORÇO/i);
+        const disciplina = matchDisc ? matchDisc[0] : 'Desconhecida';
 
-      pastasInternas.forEach(pastaInt => {
-        if (!pastaInt.isDirectory()) return;
-
-        const caminhoCompleto = path.join(pastasInternasPath, pastaInt.name);
-        const arquivos = fs.readdirSync(caminhoCompleto);
-
-        // Procura arquivos Excel do diário
-        arquivos.forEach(arquivo => {
-          if (arquivo.includes('DIÁRIO') && arquivo.endsWith('.xlsx')) {
-            const caminhoArquivo = path.join(caminhoCompleto, arquivo);
-
-            // Tentar extrair turma do nome do arquivo
-            const match = arquivo.match(/(\d{4})/);
-            const turma = match ? match[1] : 'Desconhecida';
-
-            diarios.push({
-              id: diarios.length + 1,
-              nome: arquivo,
-              turma: turma,
-              disciplina: pastaInt.name,
-              caminho: caminhoArquivo
-            });
-          }
+        diarios.push({
+          id: idx + 1,
+          nome: arquivo,
+          turma: turma,
+          disciplina: disciplina,
+          caminho: caminhoArquivo
         });
-      });
+      }
     });
   } catch (error) {
     console.error('Erro ao listar diários:', error);
@@ -76,65 +53,39 @@ function listarDiarios() {
   return diarios;
 }
 
-// Função para determinar qual aba usar baseado na data
-function obterAbaTrimestre(data) {
-  const mes = new Date(data).getMonth() + 1;
-
-  if (mes >= 2 && mes <= 5) return '1º TRIM';
-  if (mes >= 5 && mes <= 8) return '2º TRIM';
-  if (mes >= 9 && mes <= 12) return '3º TRIM';
-
-  return '1º TRIM'; // padrão
-}
-
-// POST - Login
-app.post('/api/login', (req, res) => {
-  try {
-    const { usuario, senha } = req.body;
-
-    if (!usuario || !senha) {
-      return res.status(400).json({ erro: 'Usuário e senha inválidos' });
-    }
-
-    const user = usuariosData.usuarios.find(
-      u => u.usuario === usuario && u.senha === senha
-    );
-
-    if (!user) {
-      return res.status(401).json({ erro: 'Usuário ou senha incorretos' });
-    }
-
-    res.json({
-      sucesso: true,
-      usuario: {
-        id: user.id,
-        nome: user.nome,
-        usuario: user.usuario,
-        disciplina: user.disciplina
-      }
-    });
-  } catch (error) {
-    console.error('Erro ao fazer login:', error);
-    res.status(500).json({ erro: 'Erro ao fazer login' });
-  }
-});
-
 // GET - Listar todos os diários disponíveis
 app.get('/api/diarios', (req, res) => {
   const diarios = listarDiarios();
   res.json(diarios);
 });
 
-// GET - Carregar dados (alunos, datas, etc)
+// GET - Listar trimestres disponíveis
+app.get('/api/trimestres', (req, res) => {
+  res.json([
+    { id: 1, nome: '1º TRIM', meses: 'Fevereiro, Março, Abril e Maio' },
+    { id: 2, nome: '2º TRIM', meses: 'Maio, Junho, Julho e Agosto' },
+    { id: 3, nome: '3º TRIM', meses: 'Setembro, Outubro, Novembro e Dezembro' }
+  ]);
+});
+
+// GET - Listar tempos de aula
+app.get('/api/tempos', (req, res) => {
+  res.json([
+    { id: 1, nome: '1º Tempo' },
+    { id: 2, nome: '2º Tempo' },
+    { id: 3, nome: '3º Tempo' }
+  ]);
+});
+
+// GET - Carregar dados da turma (alunos, datas, etc)
 app.get('/api/dados', async (req, res) => {
   try {
-    const { diarioId } = req.query;
+    const { diarioId, trimestre } = req.query;
 
-    if (!diarioId) {
-      return res.status(400).json({ erro: 'ID do diário não informado' });
+    if (!diarioId || !trimestre) {
+      return res.status(400).json({ erro: 'ID do diário e trimestre são obrigatórios' });
     }
 
-    // Encontrar o diário
     const diarios = listarDiarios();
     const diario = diarios.find(d => d.id == diarioId);
 
@@ -145,26 +96,36 @@ app.get('/api/dados', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(diario.caminho);
 
-    const worksheet = workbook.getWorksheet('1º TRIM');
+    // Mapear trimestre para nome da aba
+    const abaTrimestre = {
+      '1': '1º TRIM',
+      '2': '2º TRIM',
+      '3': '3º TRIM'
+    };
+
+    const worksheet = workbook.getWorksheet(abaTrimestre[trimestre]);
+    if (!worksheet) {
+      return res.status(404).json({ erro: 'Trimestre não encontrado' });
+    }
 
     // Extrair alunos
     const alunos = [];
-    for (let row = 4; row <= 100; row++) {
+    for (let row = 4; row <= 300; row++) {
       const celula = worksheet.getCell(`B${row}`).value;
-      if (celula && celula.trim()) {
+      if (celula && String(celula).trim()) {
         alunos.push({
           numero: row - 3,
-          nome: celula.trim(),
+          nome: String(celula).trim(),
           linha: row
         });
-      } else {
+      } else if (row > 10) { // Se passou de linha 10 sem alunos, para
         break;
       }
     }
 
-    // Extrair datas
+    // Extrair datas (linha 3, a partir da coluna D/4)
     const datas = [];
-    for (let col = 4; col <= 78; col++) {
+    for (let col = 4; col <= 100; col++) {
       const celula = worksheet.getCell(3, col);
       if (celula.value) {
         datas.push({
@@ -174,33 +135,31 @@ app.get('/api/dados', async (req, res) => {
       }
     }
 
+    workbook.close();
+
     res.json({
       alunos,
       datas,
       turma: diario.turma,
       disciplina: diario.disciplina,
+      trimestre: abaTrimestre[trimestre],
       diarioId: diario.id
     });
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
-    res.status(500).json({ erro: 'Erro ao carregar dados' });
+    res.status(500).json({ erro: 'Erro ao carregar dados: ' + error.message });
   }
 });
 
-// POST - Adicionar novo aluno
-app.post('/api/adicionar-aluno', async (req, res) => {
+// GET - Carregar avaliações
+app.get('/api/avaliacoes', async (req, res) => {
   try {
-    const { nome, diarioId } = req.body;
+    const { diarioId, trimestre } = req.query;
 
-    if (!nome || !nome.trim()) {
-      return res.status(400).json({ erro: 'Nome do aluno inválido' });
+    if (!diarioId || !trimestre) {
+      return res.status(400).json({ erro: 'ID do diário e trimestre são obrigatórios' });
     }
 
-    if (!diarioId) {
-      return res.status(400).json({ erro: 'ID do diário não informado' });
-    }
-
-    // Encontrar o diário
     const diarios = listarDiarios();
     const diario = diarios.find(d => d.id == diarioId);
 
@@ -211,71 +170,66 @@ app.post('/api/adicionar-aluno', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(diario.caminho);
 
-    // Adicionar em todas as 3 abas de trimestre
-    const abas = ['1º TRIM', '2º TRIM', '3º TRIM'];
+    const abaAval = {
+      '1': 'AVAL. E CONT 1º TRIM',
+      '2': 'AVAL. E CONT 2º TRIM',
+      '3': 'AVAL. E CONT 3ºTRIM'
+    };
 
-    for (const aba of abas) {
-      const worksheet = workbook.getWorksheet(aba);
+    const worksheet = workbook.getWorksheet(abaAval[trimestre]);
+    if (!worksheet) {
+      return res.status(404).json({ erro: 'Aba de avaliações não encontrada' });
+    }
 
-      // Encontrar primeira linha vazia
-      let linhaLivre = null;
-      for (let row = 4; row <= 100; row++) {
-        const celula = worksheet.getCell(`B${row}`).value;
-        if (!celula) {
-          linhaLivre = row;
-          break;
+    // Extrair alunos e avaliações
+    const avaliacoes = [];
+    for (let row = 4; row <= 300; row++) {
+      const nome = worksheet.getCell(`B${row}`).value;
+      if (nome && String(nome).trim()) {
+        const notas = [];
+        // Colunas D-X (4-24) = notas
+        for (let col = 4; col <= 24; col++) {
+          const nota = worksheet.getCell(row, col).value;
+          notas.push({
+            coluna: col,
+            valor: nota || ''
+          });
         }
-      }
 
-      if (linhaLivre) {
-        // Adicionar número
-        const cell_num = worksheet.getCell(`A${linhaLivre}`);
-        cell_num.value = linhaLivre - 3;
-        cell_num.alignment = { horizontal: 'center' };
-
-        // Adicionar nome
-        const cell_nome = worksheet.getCell(`B${linhaLivre}`);
-        cell_nome.value = nome.trim();
-
-        // Adicionar fórmula de contagem de faltas
-        const cell_faltas = worksheet.getCell(`BJ${linhaLivre}`);
-        cell_faltas.value = `=COUNTIF(C${linhaLivre}:BJ${linhaLivre},"F")`;
-        cell_faltas.alignment = { horizontal: 'center' };
-
-        // Preencher com pontos vazios nas colunas de presença
-        for (let col = 3; col <= 78; col++) {
-          const cell = worksheet.getCell(linhaLivre, col);
-          cell.alignment = { horizontal: 'center' };
-        }
+        avaliacoes.push({
+          numero: row - 3,
+          nome: String(nome).trim(),
+          linha: row,
+          notas
+        });
+      } else if (row > 10) {
+        break;
       }
     }
 
-    await workbook.xlsx.writeFile(diario.caminho);
+    workbook.close();
 
     res.json({
-      sucesso: true,
-      mensagem: `Aluno "${nome}" adicionado com sucesso!`
+      avaliacoes,
+      turma: diario.turma,
+      trimestre: abaAval[trimestre],
+      diarioId: diario.id
     });
   } catch (error) {
-    console.error('Erro ao adicionar aluno:', error);
-    res.status(500).json({ erro: 'Erro ao adicionar aluno' });
+    console.error('Erro ao carregar avaliações:', error);
+    res.status(500).json({ erro: 'Erro ao carregar avaliações' });
   }
 });
 
-// POST - Salvar presença
+// POST - Salvar presença (com suporte a tempos de aula)
 app.post('/api/salvar-presenca', async (req, res) => {
   try {
-    const { data, conteudo, presencas, diarioId, professor } = req.body;
+    const { data, conteudo, presencas, diarioId, trimestre, tempo } = req.body;
 
-    if (!data || !presencas || Object.keys(presencas).length === 0) {
+    if (!data || !presencas || Object.keys(presencas).length === 0 || !diarioId || !trimestre) {
       return res.status(400).json({ erro: 'Dados incompletos' });
     }
 
-    if (!diarioId) {
-      return res.status(400).json({ erro: 'ID do diário não informado' });
-    }
-
-    // Encontrar o diário
     const diarios = listarDiarios();
     const diario = diarios.find(d => d.id == diarioId);
 
@@ -286,12 +240,20 @@ app.post('/api/salvar-presenca', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(diario.caminho);
 
-    const aba = obterAbaTrimestre(data);
-    const worksheet = workbook.getWorksheet(aba);
+    const abaTrimestre = {
+      '1': '1º TRIM',
+      '2': '2º TRIM',
+      '3': '3º TRIM'
+    };
 
-    // Encontrar a coluna da data
+    const worksheet = workbook.getWorksheet(abaTrimestre[trimestre]);
+    if (!worksheet) {
+      return res.status(404).json({ erro: 'Trimestre não encontrado' });
+    }
+
+    // Encontrar a próxima coluna vazia para a data
     let colunaDado = null;
-    for (let col = 4; col <= 78; col++) {
+    for (let col = 4; col <= 100; col++) {
       const celula = worksheet.getCell(3, col);
       if (!celula.value) {
         colunaDado = col;
@@ -308,28 +270,41 @@ app.post('/api/salvar-presenca', async (req, res) => {
     cell_data.value = data;
     cell_data.alignment = { horizontal: 'center', vertical: 'center' };
 
-    // Salvar conteúdo em aba separada
+    // Adicionar tempo de aula (T1, T2, T3) na célula logo abaixo se especificado
+    if (tempo) {
+      const tempoLabels = { '1': 'T1', '2': 'T2', '3': 'T3' };
+      // Aqui pode adicionar lógica adicional se necessário
+    }
+
+    // Salvar conteúdo na aba de AVALIAÇÃO correspondente
     if (conteudo && conteudo.trim()) {
       try {
-        let wsConteudos = workbook.getWorksheet('CONTEUDOS');
-        if (!wsConteudos) {
-          wsConteudos = workbook.addWorksheet('CONTEUDOS');
-          wsConteudos.getCell(1, 1).value = 'Data';
-          wsConteudos.getCell(1, 2).value = 'Conteudo';
-          wsConteudos.getCell(1, 3).value = 'Professor';
-          wsConteudos.columns = [{ width: 12 }, { width: 40 }, { width: 25 }];
+        const abaAval = {
+          '1': 'AVAL. E CONT 1º TRIM',
+          '2': 'AVAL. E CONT 2º TRIM',
+          '3': 'AVAL. E CONT 3ºTRIM'
+        };
+
+        const wsAval = workbook.getWorksheet(abaAval[trimestre]);
+        if (wsAval) {
+          // Coluna AA (27) = CONTEÚDO - procura primeira linha vazia
+          let linha_conteudo = 4;
+          for (let row = 4; row <= 300; row++) {
+            const val = wsAval.getCell(row, 27).value;
+            if (!val || !String(val).trim()) {
+              linha_conteudo = row;
+              break;
+            }
+          }
+          wsAval.getCell(linha_conteudo, 27).value = `${data}: ${conteudo.trim()}`;
         }
-        const nextRow = wsConteudos.rowCount + 1;
-        wsConteudos.getCell(nextRow, 1).value = data;
-        wsConteudos.getCell(nextRow, 2).value = conteudo.trim();
-        wsConteudos.getCell(nextRow, 3).value = professor || 'Professor';
       } catch (err) {
         console.error('Erro ao salvar conteúdo:', err);
       }
     }
 
     // Adicionar presenças
-    for (let linha = 4; linha <= 100; linha++) {
+    for (let linha = 4; linha <= 300; linha++) {
       const numeroAluno = linha - 3;
       const presenca = presencas[numeroAluno];
 
@@ -346,17 +321,237 @@ app.post('/api/salvar-presenca', async (req, res) => {
       }
     }
 
+    // Incrementar AULAS DADAS (linha 2, coluna AB/28)
+    const celAulasDadas = worksheet.getCell(2, 28);
+    const valorAtual = parseInt(celAulasDadas.value || 0);
+    celAulasDadas.value = valorAtual + 1;
+
     await workbook.xlsx.writeFile(diario.caminho);
+    workbook.close();
 
     res.json({
       sucesso: true,
-      mensagem: 'Presenca salva com sucesso!',
+      mensagem: 'Presença salva com sucesso!',
       coluna: colunaDado,
       data: data
     });
   } catch (error) {
-    console.error('Erro ao salvar:', error);
-    res.status(500).json({ erro: 'Erro ao salvar presenca' });
+    console.error('Erro ao salvar presença:', error);
+    res.status(500).json({ erro: 'Erro ao salvar presença: ' + error.message });
+  }
+});
+
+// POST - Salvar avaliação (nota)
+app.post('/api/salvar-avaliacao', async (req, res) => {
+  try {
+    const { diarioId, trimestre, numeroAluno, numeroAvaliacao, nota } = req.body;
+
+    if (!diarioId || !trimestre || !numeroAluno || !numeroAvaliacao) {
+      return res.status(400).json({ erro: 'Dados incompletos' });
+    }
+
+    const diarios = listarDiarios();
+    const diario = diarios.find(d => d.id == diarioId);
+
+    if (!diario) {
+      return res.status(404).json({ erro: 'Diário não encontrado' });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(diario.caminho);
+
+    const abaAval = {
+      '1': 'AVAL. E CONT 1º TRIM',
+      '2': 'AVAL. E CONT 2º TRIM',
+      '3': 'AVAL. E CONT 3ºTRIM'
+    };
+
+    const worksheet = workbook.getWorksheet(abaAval[trimestre]);
+    if (!worksheet) {
+      return res.status(404).json({ erro: 'Aba de avaliações não encontrada' });
+    }
+
+    // Linha do aluno = 3 + numeroAluno
+    const linhaAluno = 3 + numeroAluno;
+    // Coluna da avaliação = 3 + numeroAvaliacao (D=4 é AV1, E=5 é AV2, etc)
+    const colunaAvaliacao = 3 + numeroAvaliacao;
+
+    // Salvar nota
+    worksheet.getCell(linhaAluno, colunaAvaliacao).value = nota || '';
+
+    // Recalcular total (coluna Y/25)
+    let soma = 0;
+    let count = 0;
+    for (let col = 4; col <= 24; col++) {
+      const val = worksheet.getCell(linhaAluno, col).value;
+      if (val && !isNaN(val)) {
+        soma += parseFloat(val);
+        count++;
+      }
+    }
+    const media = count > 0 ? (soma / count).toFixed(2) : 0;
+    worksheet.getCell(linhaAluno, 25).value = media; // Coluna Y
+
+    await workbook.xlsx.writeFile(diario.caminho);
+    workbook.close();
+
+    res.json({
+      sucesso: true,
+      mensagem: 'Avaliação salva com sucesso!',
+      nota: nota,
+      media: media
+    });
+  } catch (error) {
+    console.error('Erro ao salvar avaliação:', error);
+    res.status(500).json({ erro: 'Erro ao salvar avaliação: ' + error.message });
+  }
+});
+
+// POST - Salvar conteúdo do trimestre
+app.post('/api/salvar-conteudo', async (req, res) => {
+  try {
+    const { diarioId, trimestre, conteudo } = req.body;
+
+    if (!diarioId || !trimestre || !conteudo) {
+      return res.status(400).json({ erro: 'Dados incompletos' });
+    }
+
+    const diarios = listarDiarios();
+    const diario = diarios.find(d => d.id == diarioId);
+
+    if (!diario) {
+      return res.status(404).json({ erro: 'Diário não encontrado' });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(diario.caminho);
+
+    const abaAval = {
+      '1': 'AVAL. E CONT 1º TRIM',
+      '2': 'AVAL. E CONT 2º TRIM',
+      '3': 'AVAL. E CONT 3ºTRIM'
+    };
+
+    const worksheet = workbook.getWorksheet(abaAval[trimestre]);
+    if (!worksheet) {
+      return res.status(404).json({ erro: 'Aba de avaliações não encontrada' });
+    }
+
+    // Salvar conteúdo na coluna AA (27) - próxima linha vazia
+    let linhaConteudo = 4;
+    for (let row = 4; row <= 300; row++) {
+      const val = worksheet.getCell(row, 27).value;
+      if (!val || !String(val).trim()) {
+        linhaConteudo = row;
+        break;
+      }
+    }
+
+    worksheet.getCell(linhaConteudo, 27).value = conteudo.trim();
+
+    await workbook.xlsx.writeFile(diario.caminho);
+    workbook.close();
+
+    res.json({
+      sucesso: true,
+      mensagem: 'Conteúdo salvo com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao salvar conteúdo:', error);
+    res.status(500).json({ erro: 'Erro ao salvar conteúdo: ' + error.message });
+  }
+});
+
+// POST - Adicionar novo aluno
+app.post('/api/adicionar-aluno', async (req, res) => {
+  try {
+    const { nome, diarioId, trimestre } = req.body;
+
+    if (!nome || !nome.trim()) {
+      return res.status(400).json({ erro: 'Nome do aluno inválido' });
+    }
+
+    if (!diarioId) {
+      return res.status(400).json({ erro: 'ID do diário não informado' });
+    }
+
+    const diarios = listarDiarios();
+    const diario = diarios.find(d => d.id == diarioId);
+
+    if (!diario) {
+      return res.status(404).json({ erro: 'Diário não encontrado' });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(diario.caminho);
+
+    // Adicionar em todas as 3 abas de trimestre
+    const abas = ['1º TRIM', '2º TRIM', '3º TRIM'];
+
+    for (const aba of abas) {
+      const worksheet = workbook.getWorksheet(aba);
+      if (!worksheet) continue;
+
+      // Encontrar primeira linha vazia
+      let linhaLivre = null;
+      for (let row = 4; row <= 300; row++) {
+        const celula = worksheet.getCell(`B${row}`).value;
+        if (!celula || !String(celula).trim()) {
+          linhaLivre = row;
+          break;
+        }
+      }
+
+      if (linhaLivre) {
+        // Adicionar número
+        const cell_num = worksheet.getCell(`A${linhaLivre}`);
+        cell_num.value = linhaLivre - 3;
+        cell_num.alignment = { horizontal: 'center' };
+
+        // Adicionar nome
+        const cell_nome = worksheet.getCell(`B${linhaLivre}`);
+        cell_nome.value = nome.trim();
+      }
+    }
+
+    // Adicionar também nas abas de avaliação
+    const abasAval = ['AVAL. E CONT 1º TRIM', 'AVAL. E CONT 2º TRIM', 'AVAL. E CONT 3ºTRIM'];
+
+    for (const aba of abasAval) {
+      const worksheet = workbook.getWorksheet(aba);
+      if (!worksheet) continue;
+
+      let linhaLivre = null;
+      for (let row = 4; row <= 300; row++) {
+        const celula = worksheet.getCell(`B${row}`).value;
+        if (!celula || !String(celula).trim()) {
+          linhaLivre = row;
+          break;
+        }
+      }
+
+      if (linhaLivre) {
+        const cell_num = worksheet.getCell(`A${linhaLivre}`);
+        cell_num.value = linhaLivre - 3;
+
+        const cell_nome = worksheet.getCell(`B${linhaLivre}`);
+        cell_nome.value = nome.trim();
+
+        const cell_numero = worksheet.getCell(`C${linhaLivre}`);
+        cell_numero.value = linhaLivre - 3;
+      }
+    }
+
+    await workbook.xlsx.writeFile(diario.caminho);
+    workbook.close();
+
+    res.json({
+      sucesso: true,
+      mensagem: `Aluno "${nome}" adicionado com sucesso!`
+    });
+  } catch (error) {
+    console.error('Erro ao adicionar aluno:', error);
+    res.status(500).json({ erro: 'Erro ao adicionar aluno: ' + error.message });
   }
 });
 
@@ -364,4 +559,5 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`App rodando em http://localhost:${PORT}`);
   console.log('Acesse pelo navegador do celular com: http://SEU_IP:3000');
+  console.log(`Diarios carregados de: ${PASTA_DIARIOS}`);
 });
