@@ -308,11 +308,24 @@ app.post('/api/salvar-presenca', async (req, res) => {
     cell_data.value = data;
     cell_data.alignment = { horizontal: 'center', vertical: 'center' };
 
-    // Adicionar conteúdo se houver
+    // Salvar conteúdo em aba separada
     if (conteudo && conteudo.trim()) {
-      const cell_conteudo = worksheet.getCell(2, colunaDado);
-      cell_conteudo.value = conteudo.trim();
-      cell_conteudo.alignment = { horizontal: 'center', vertical: 'center', wrap: true };
+      try {
+        let wsConteudos = workbook.getWorksheet('CONTEUDOS');
+        if (!wsConteudos) {
+          wsConteudos = workbook.addWorksheet('CONTEUDOS');
+          wsConteudos.getCell(1, 1).value = 'Data';
+          wsConteudos.getCell(1, 2).value = 'Conteudo';
+          wsConteudos.getCell(1, 3).value = 'Professor';
+          wsConteudos.columns = [{ width: 12 }, { width: 40 }, { width: 25 }];
+        }
+        const nextRow = wsConteudos.rowCount + 1;
+        wsConteudos.getCell(nextRow, 1).value = data;
+        wsConteudos.getCell(nextRow, 2).value = conteudo.trim();
+        wsConteudos.getCell(nextRow, 3).value = professor || 'Professor';
+      } catch (err) {
+        console.error('Erro ao salvar conteúdo:', err);
+      }
     }
 
     // Adicionar presenças
