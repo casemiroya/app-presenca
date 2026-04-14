@@ -1,10 +1,30 @@
-node_modules/
-.env
-.DS_Store
-*.log
-dist/
-build/
-.replit
-replit.nix
+# Pasta com dados dos alunos (NÃO subir para Git!)
 diarios/
 *.xlsx
+*.xls
+
+# Dependências
+node_modules/
+package-lock.json
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Arquivos do SO
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp
+.tmp/
+temp/
